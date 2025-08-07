@@ -1,0 +1,39 @@
+{
+  "name": "rail-tunnel-cli",
+  "version": "1.0.0",
+  "description": "Ngrok-like tunnel CLI for Railway",
+  "main": "dist/index.js",
+  "bin": {
+    "rail-tunnel": "bin/rail-tunnel"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/cli.ts",
+    "start": "node dist/cli.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["tunnel", "ngrok", "railway", "cli"],
+  "author": "Isa Citra Buana",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.1.0",
+    "ws": "^8.16.0",
+    "chalk": "^4.1.2",
+    "axios": "^1.6.0",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/rail-tunnel-cli"
+  }
+}

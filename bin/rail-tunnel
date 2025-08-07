@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+
+const path = require('path');
+const { spawn } = require('child_process');
+
+// Check if we're running from source (dev) or built (production)
+const isBuilt = require('fs').existsSync(path.join(__dirname, '..', 'dist', 'cli.js'));
+
+if (isBuilt) {
+  // Production: run compiled JS
+  require('../dist/cli.js');
+} else {
+  // Development: run TypeScript with ts-node
+  const tsNode = spawn('npx', ['ts-node', path.join(__dirname, '..', 'src', 'cli.ts'), ...process.argv.slice(2)], {
+    stdio: 'inherit',
+    cwd: path.join(__dirname, '..')
+  });
+  
+  tsNode.on('exit', (code) => {
+    process.exit(code);
+  });
+}
