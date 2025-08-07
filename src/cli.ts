@@ -9,7 +9,7 @@ const program = new Command();
 // CLI Info
 program
   .name('rail-tunnel')
-  .description('🚇 Rail Tunnel - Ngrok-like tunneling service (Hackathon Edition)')
+  .description('🚇 Rail Tunnel - Professional tunneling service for developers')
   .version('1.0.0');
 
 // Main tunnel command
@@ -20,7 +20,7 @@ program
   .requiredOption('-r, --remote <server>', 'Rail Tunnel server URL (e.g., https://my-tunnel.railway.app)')
   .action(async (options: any) => {
     try {
-      console.log(chalk.cyan('Rail Tunnel - Hackathon Edition'));
+      console.log(chalk.cyan('Rail Tunnel - Professional Tunneling Service'));
       console.log(chalk.gray(`Tunneling localhost:${options.port} -> Rail Tunnel`));
       
       // Validate port

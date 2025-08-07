@@ -1,49 +1,57 @@
 # 🚇 Rail Tunnel CLI
 
-Ngrok-like tunnel CLI for Railway - **Hackathon Edition**
+A professional tunneling solution that exposes your local development servers to the internet through secure WebSocket connections.
 
-Expose your local services to the internet through Railway's infrastructure.
+## ✨ Features
+
+- **Secure Tunneling**: WebSocket-based connection with real-time request proxying
+- **Easy Setup**: One command to expose any local service
+- **Railway Integration**: Designed to work seamlessly with Railway's infrastructure
+- **Real-time Logging**: Monitor all incoming requests and responses
+- **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ## 🚀 Quick Start
 
 ### Installation
 ```bash
+# Install globally
 npm install -g rail-tunnel-cli
-# or use with npx (recommended)
-npx rail-tunnel-cli --help
+
+# Or use with npx (recommended)
+npx rail-tunnel --help
 ```
 
 ### Basic Usage
 ```bash
-# Tunnel a local web server
-npx rail-tunnel-cli tunnel http://localhost:3000
+# Tunnel your local development server
+npx rail-tunnel tunnel --port 3000 --remote https://your-tunnel-server.railway.app
 
-# Specify port explicitly  
-npx rail-tunnel-cli tunnel http://localhost:8080 --port 8080
+# Tunnel a different port
+npx rail-tunnel tunnel --port 8080 --remote https://your-tunnel-server.railway.app
 
-# Request custom subdomain
-npx rail-tunnel-cli tunnel http://localhost:3000 --subdomain myapp
-
-# Use custom Railway server
-npx rail-tunnel-cli tunnel http://localhost:3000 --server https://my-tunnel-server.railway.app
+# For development/testing with local server
+npx rail-tunnel tunnel --port 3000 --remote http://localhost:9000
 ```
 
 ## 📋 Commands
 
-### `tunnel <url>`
-Create a tunnel to expose local service to the internet.
+### `tunnel`
+Create a secure tunnel to expose your local service to the internet.
 
-**Options:**
-- `-p, --port <port>` - Local port to tunnel (auto-detected from URL)
-- `-s, --subdomain <subdomain>` - Request specific subdomain (optional)
-- `--server <server>` - Railway server URL (default: your deployed server)
-- `--auth <token>` - Authentication token (optional)
+**Required Options:**
+- `-p, --port <port>` - Local port to tunnel (e.g., 3000, 8080)
+- `-r, --remote <server>` - Tunnel server URL (e.g., https://my-tunnel.railway.app)
 
 **Examples:**
 ```bash
-rail-tunnel tunnel http://localhost:3000
-rail-tunnel tunnel localhost:8080 --port 8080
-rail-tunnel tunnel http://localhost:3000 --subdomain myapp
+# Tunnel local Next.js app (port 3000)
+rail-tunnel tunnel --port 3000 --remote https://my-tunnel.railway.app
+
+# Tunnel local API server (port 8080)
+rail-tunnel tunnel --port 8080 --remote https://api-tunnel.railway.app
+
+# Development testing with local tunnel server
+rail-tunnel tunnel --port 3000 --remote http://localhost:9000
 ```
 
 ### `info`
@@ -53,75 +61,76 @@ Show system information and verify CLI installation.
 rail-tunnel info
 ```
 
-## 🏗️ Architecture
+## 🗗️ Architecture
 
 ```
-[Browser] → [Railway Server] → [WebSocket] → [CLI Client] → [Local Service]
+[Browser] → [Rail Tunnel Server] → [WebSocket] → [CLI Client] → [Local Service]
 ```
 
 **Flow:**
-1. CLI connects to Railway server via WebSocket
-2. Server assigns public URL (e.g., `abc123.railway.app`)
-3. Public requests are forwarded to CLI via WebSocket
-4. CLI forwards requests to local service
-5. Responses are sent back through the same path
+1. CLI connects to tunnel server via WebSocket (`/_tunnel/ws/connect`)
+2. Browser requests are sent to tunnel server public URL
+3. Server forwards HTTP requests to CLI via WebSocket
+4. CLI proxies requests to your local service
+5. Responses are sent back through the same WebSocket connection
+6. Browser receives the response as if it came directly from your local service
 
 ## 🔧 Development
 
 ### Setup
 ```bash
-git clone <repo>
+git clone https://github.com/isaui/rail-tunnel-cli.git
 cd rail-tunnel-cli
 npm install
 ```
 
 ### Development Mode
 ```bash
-# Run from source
-npm run dev tunnel http://localhost:3000
+# Run from TypeScript source
+npx ts-node src/cli.ts tunnel --port 3000 --remote http://localhost:9000
 
-# Or use the bin script
-./bin/rail-tunnel tunnel http://localhost:3000
+# Or use dev script
+npm run dev tunnel --port 3000 --remote http://localhost:9000
 ```
 
-### Build
+### Build & Production
 ```bash
+# Build TypeScript to JavaScript
 npm run build
-npm start tunnel http://localhost:3000
+
+# Run production build
+node dist/cli.js tunnel --port 3000 --remote https://your-server.railway.app
 ```
 
-### Testing
+### Local Testing
 ```bash
-# Start a local server
-python -m http.server 8000
-# or
-npx serve -p 3000
+# Terminal 1: Start your local app
+npm run dev  # or python -m http.server 3000, etc.
 
-# In another terminal, start tunnel
-npm run dev tunnel http://localhost:8000
+# Terminal 2: Start tunnel server (for local testing)
+cd ../rail-tunnel && go run main.go
+
+# Terminal 3: Start tunnel client
+npx ts-node src/cli.ts tunnel --port 3000 --remote http://localhost:9000
+
+# Test: Open http://localhost:9000 in browser
 ```
 
 ## 🌐 Server Requirements
 
-The CLI connects to a Railway-deployed server that must implement:
+The CLI connects to a compatible Rail Tunnel server that implements:
 
-### API Endpoints
-- `POST /api/tunnels` - Create tunnel, return public URL
-- `DELETE /api/tunnels/:id` - Close tunnel
-- `GET /health` - Health check
+### WebSocket Endpoints
+- `WS /_tunnel/ws/connect?port=<port>` - WebSocket connection for tunnel client
+- `GET /_tunnel/health` - Health check endpoint
+- `GET /_tunnel/info` - Server information
 
-### WebSocket Endpoint
-- `WS /ws/tunnel/:tunnelId` - WebSocket connection for request forwarding
+### Traffic Proxying
+- `ANY /*` - All other traffic is proxied through the tunnel to your local service
 
-### Message Protocol
+### WebSocket Message Protocol
 ```typescript
-// Client → Server
-{
-  type: "pong",
-  timestamp: number
-}
-
-// Server → Client  
+// Server → Client (HTTP Request)
 {
   type: "http_request",
   requestId: string,
@@ -131,58 +140,69 @@ The CLI connects to a Railway-deployed server that must implement:
   body: any
 }
 
-// Client → Server
+// Client → Server (HTTP Response)
 {
-  type: "http_response", 
+  type: "http_response",
   requestId: string,
   statusCode: number,
   headers: object,
   body: any
 }
+
+// Client → Server (Keep-alive)
+{
+  type: "ping",
+  timestamp: number
+}
+
+// Server → Client (Keep-alive response)
+{
+  type: "pong",
+  timestamp: number
+}
 ```
-
-## 🎯 Hackathon Features
-
-**MVP Features (Phase 1):**
-- ✅ CLI argument parsing
-- ✅ WebSocket tunnel connection
-- ✅ HTTP request forwarding
-- ✅ Auto-reconnection
-- ✅ Graceful shutdown
-- ✅ Pretty terminal output
-
-**Future Features (Phase 2):**
-- 🔄 Custom subdomains
-- 🔄 HTTPS support
-- 🔄 Authentication
-- 🔄 Multiple tunnel support
-- 🔄 Traffic statistics
-- 🔄 Web dashboard
-
-## 🐛 Troubleshooting
-
-### "Cannot reach server"
-- Check if Railway server is deployed and accessible
-- Verify server URL with `--server` option
-
-### "WebSocket connection timeout"
-- Check firewall/corporate network restrictions
-- Try different network connection
-
-### "Local service unavailable" 
-- Verify local service is running on specified port
-- Check local URL accessibility: `curl http://localhost:3000`
-
-## 📝 License
-
-MIT - Built for Railway Hackathon 🚀
 
 ## 🤝 Contributing
 
-This is a hackathon project! Feel free to:
-- Report bugs
-- Submit feature requests  
-- Send pull requests
-- Star the repo ⭐
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+MIT License - see LICENSE file for details.
+
+## 🔗 Related
+
+- [Rail Tunnel Server](https://github.com/isaui/rail-tunnel) - The companion server application
+- Deploy your own tunnel server on [Railway](https://railway.app)
+
+## 🐛 Troubleshooting
+
+### Connection Issues
+**"Cannot reach server"**
+- Ensure the tunnel server is deployed and accessible
+- Verify server URL with `--remote` option
+- Check if server health endpoint responds: `curl https://your-server.railway.app/_tunnel/health`
+
+**"WebSocket connection timeout"**
+- Check firewall/corporate network restrictions
+- Try different network connection
+- Verify WebSocket endpoint is accessible
+
+### Local Service Issues
+**"Local request failed"**
+- Verify your local service is running on the specified port
+- Test local accessibility: `curl http://localhost:3000`
+- Check if the port is already in use by another application
+
+**"502 Bad Gateway"**
+- Local service is not responding
+- Port mismatch between CLI and actual service
+- Local service crashed or stopped
+
+### General Issues
+**CLI crashes or exits unexpectedly**
+- Check Node.js version (requires Node 16+)
+- Review error messages for specific issues
+- Try running with `--verbose` flag if available
 
 **Built with ❤️ for the Railway community**
